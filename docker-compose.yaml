@@ -1,0 +1,30 @@
+services:
+  flare-node:
+    image: flarefoundation/${NODE_TAG} # e.g., go-flare:v1.11.0
+    container_name: ${NETWORK}-${NODE_TYPE:-observer} # e.g., flare-observer or flare-validator
+    restart: always
+    environment:
+      - NETWORK_ID=${NETWORK} # e.g., flare
+      - AUTOCONFIGURE_BOOTSTRAP=1
+      - AUTOCONFIGURE_PUBLIC_IP=1
+      - AUTOCONFIGURE_BOOTSTRAP_ENDPOINT=${BOOTSTRAP_ENDPOINT} # Auto-configured per network
+      - HTTP_HOST=${HTTP_HOST:-0.0.0.0}
+      - EXTRA_ARGUMENTS=${EXTRA_ARGUMENTS} # Additional node arguments
+    volumes:
+      - ${DB_DIR}:/app/db # Database directory
+      - /opt/flare/configs:/app/conf/C # Config files (config.json)
+      - /opt/flare/logs:/app/logs # Log files
+      - /opt/flare/staking:/app/staking # Staking certificates (validators only)
+    ports:
+      - "${HTTP_HOST:-0.0.0.0}:9650:9650"
+      - "${HTTP_HOST:-0.0.0.0}:9651:9651"
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:9650/ext/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+
+# External volume for DB
+volumes:
+  flare-db:
