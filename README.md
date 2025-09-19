@@ -75,7 +75,7 @@
 ## Files Structure
 
 ```
-├── docker-compose.yaml      # Main container configuration
+├── docker compose.yaml      # Main container configuration
 ├── env.example             # Environment template
 ├── install-docker.sh       # Docker installation script
 ├── setup.sh               # Setup script (replaces install functionality)

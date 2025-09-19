@@ -23,9 +23,9 @@ print_error() {
 }
 
 # Check if container is running
-if ! docker-compose ps | grep -q "Up"; then
+if ! docker compose ps | grep -q "Up"; then
     print_error "Flare node container is not running"
-    echo "Run 'docker-compose up -d' to start the node"
+    echo "Run 'docker compose up -d' to start the node"
     exit 1
 fi
 
@@ -52,7 +52,7 @@ else
 fi
 
 # Get container status
-container_status=$(docker-compose ps --format "table {{.Name}}\t{{.Status}}" | tail -n +2)
+container_status=$(docker compose ps --format "table {{.Name}}\t{{.Status}}" | tail -n +2)
 
 echo "========================================="
 echo "           FLARE NODE STATUS"
@@ -69,11 +69,11 @@ echo
 
 # Additional Docker info
 print_status "Docker container details:"
-docker-compose ps
+docker compose ps
 
 # Check if there are any recent errors in logs
 print_status "Recent log entries (last 10 lines):"
-docker-compose logs --tail=10
+docker compose logs --tail=10
 
 if [ "$healthy_value" == "true" ]; then
     print_status "Node is healthy and operational!"

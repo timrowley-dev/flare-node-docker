@@ -158,7 +158,7 @@ fi
 
 # Step 2: Stop the current container
 print_status "Stopping current container..."
-if docker-compose down; then
+if docker compose down; then
     print_status "Container stopped successfully"
 else
     print_warning "No container was running or failed to stop"
@@ -166,7 +166,7 @@ fi
 
 # Step 3: Pull the new image
 print_status "Pulling new image: flarefoundation/$NEW_TAG"
-if docker-compose pull; then
+if docker compose pull; then
     print_status "Successfully pulled new image"
 else
     print_error "Failed to pull new image"
@@ -177,13 +177,13 @@ fi
 
 # Step 4: Start with new image
 print_status "Starting node with new version..."
-if docker-compose up -d; then
+if docker compose up -d; then
     print_status "Node started successfully with new version"
 else
     print_error "Failed to start node with new version"
     print_status "Restoring previous configuration..."
     mv .env.backup .env
-    docker-compose up -d
+    docker compose up -d
     exit 1
 fi
 
@@ -192,7 +192,7 @@ print_status "Waiting for node to start..."
 sleep 10
 
 # Check if container is running
-if docker-compose ps | grep -q "Up"; then
+if docker compose ps | grep -q "Up"; then
     print_status "✅ Update completed successfully!"
     echo "  Updated from: $current_tag"
     echo "  Updated to: $NEW_TAG"
@@ -214,7 +214,7 @@ if docker-compose ps | grep -q "Up"; then
     
     print_status "Next steps:"
     echo "  - Check status: ./health-check.sh"
-    echo "  - View logs: docker-compose logs -f"
+    echo "  - View logs: docker compose logs -f"
     echo "  - Monitor sync progress in the logs"
     
     # Clean up backup on success
@@ -224,6 +224,6 @@ else
     print_error "Update failed - container is not running"
     print_status "Restoring previous configuration..."
     mv .env.backup .env
-    docker-compose up -d
+    docker compose up -d
     exit 1
 fi
