@@ -25,7 +25,7 @@
   "allow-unfinalized-queries": false,
   "allow-unprotected-txs": false,
   "remote-tx-gossip-only-enabled": false,
-  "log-level": "info"
+  "log-level": "info",
   "pruning-enabled": true,
-  "state-sync-enabled": true,
+  "state-sync-enabled": true
 }
