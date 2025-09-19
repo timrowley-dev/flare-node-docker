@@ -10,6 +10,7 @@
 - [Node Updates](#node-updates)
 - [Troubleshooting](#troubleshooting)
 - [Hardware Requirements](#-hardware-requirements)
+- [Helpful Links](#-helpful-links)
 
 ### ✅ **Fully Supported Features**
 
@@ -291,3 +292,12 @@ docker compose restart
 - **Disk Growth**: Plan for continuous growth over time
 - **Archival Nodes**: Require significantly more storage but provide full historical data
 - **Hardware**: You may need to adjust CPU/RAM depending on node usage
+
+### 🔗 **Helpful Links**
+
+| Resource                | Link                                                                            |
+| ----------------------- | ------------------------------------------------------------------------------- |
+| Official Flare Docs     | [dev.flare.network/run-node](https://dev.flare.network/run-node)                |
+| Flare Docker Repository | [Docker Hub](https://hub.docker.com/r/flarefoundation/go-flare/)                |
+| Node Config Flags       | [Avalanche Docs](https://build.avax.network/docs/nodes/configure/configs-flags) |
+| C-Chain Configurations  | [Avalanche Docs](https://build.avax.network/docs/nodes/chain-configs/c-chain)   |
