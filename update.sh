@@ -197,23 +197,8 @@ if docker compose ps | grep -q "Up"; then
     echo "  Updated from: $current_tag"
     echo "  Updated to: $NEW_TAG"
     echo ""
-    print_status "Checking node health..."
-    sleep 5
-    
-    # Try to get node version (optional check)
-    if command -v curl &> /dev/null; then
-        if curl_result=$(curl -s --max-time 10 --location 'http://localhost:9650/ext/info' \
-            --header 'Content-Type: application/json' \
-            --data '{"jsonrpc":"2.0","id":1,"method":"info.getNodeVersion","params":[]}' 2>/dev/null); then
-            node_version=$(echo "$curl_result" | jq -r '.result.version // "unknown"' 2>/dev/null || echo "unknown")
-            print_status "Node version: $node_version"
-        else
-            print_warning "Could not verify node version (node may still be starting)"
-        fi
-    fi
-    
     print_status "Next steps:"
-    echo "  - Check status: ./health-check.sh"
+    echo "  - Check node status and version: ./health-check.sh"
     echo "  - View logs: docker compose logs -f"
     echo "  - Monitor sync progress in the logs"
     
