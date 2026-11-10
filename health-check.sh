@@ -71,12 +71,11 @@ echo
 print_status "Docker container details:"
 docker compose ps
 
-# Check if there are any recent errors in logs
-print_status "Recent log entries (last 10 lines):"
-docker compose logs --tail=10
-
 if [ "$healthy_value" == "true" ]; then
     print_status "Node is healthy and operational!"
 else
     print_warning "Node health check indicates issues. Check logs for details."
+    echo
+    print_status "Recent log entries (last 3 lines):"
+    docker compose logs --tail=3
 fi
