@@ -22,6 +22,11 @@ print_error() {
     echo -e "${RED}[ERROR]${NC} $1"
 }
 
+SCRIPT_DIR=$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)
+cd "$SCRIPT_DIR"
+# shellcheck source=staking-identity.sh
+source "$SCRIPT_DIR/staking-identity.sh"
+
 # Function to fetch latest version tags from Docker Hub
 fetch_latest_tags() {
     # Send status message to stderr so it doesn't interfere with tag data
@@ -66,7 +71,7 @@ select_tag_interactively() {
         print_error "Failed to fetch tags. Please specify tag manually:"
         echo "Usage: $0 <new-tag-version>"
         echo "Examples:"
-        echo "  $0 go-flare:v1.11.1"
+        echo "  $0 go-flare:v1.15.1"
         echo "  $0 go-flare:latest"
         echo ""
         echo "Available tags: https://hub.docker.com/r/flarefoundation/go-flare/tags"
@@ -101,7 +106,7 @@ select_tag_interactively() {
             exit 0
         elif [[ "$choice" == "$i" ]]; then
             # Custom version
-            read -p "Enter custom tag (e.g., go-flare:v1.11.1): " NEW_TAG
+            read -p "Enter custom tag (e.g., go-flare:v1.15.1): " NEW_TAG
             if [ -z "$NEW_TAG" ]; then
                 print_error "No tag specified"
                 continue
@@ -146,36 +151,41 @@ fi
 
 print_status "Starting update process..."
 
+print_status "Saving staking identity before any recreate..."
+salvage_staking_files
+if deploy_is_validator && ! staking_files_complete; then
+    print_restore_instructions
+    print_error "Refusing to recreate this validator."
+    exit 1
+fi
+if deploy_is_validator; then
+    append_staking_flags
+fi
+
 # Step 1: Update the .env file
 print_status "Updating NODE_TAG in .env file..."
-if sed -i.backup "s|^NODE_TAG=.*|NODE_TAG=$NEW_TAG|" .env; then
+cp .env .env.backup
+if set_env_var NODE_TAG "$NEW_TAG"; then
     print_status "Updated NODE_TAG to: $NEW_TAG"
     print_status "Backup saved as: .env.backup"
 else
     print_error "Failed to update .env file"
+    mv .env.backup .env
     exit 1
 fi
 
-# Step 2: Stop the current container
-print_status "Stopping current container..."
-if docker compose down; then
-    print_status "Container stopped successfully"
-else
-    print_warning "No container was running or failed to stop"
-fi
-
-# Step 3: Pull the new image
+# Step 2: Pull the new image while the current container keeps running
 print_status "Pulling new image: flarefoundation/$NEW_TAG"
 if docker compose pull; then
     print_status "Successfully pulled new image"
 else
     print_error "Failed to pull new image"
-    print_status "Restoring previous configuration..."
+    print_status "Restoring previous configuration. The current container was left running."
     mv .env.backup .env
     exit 1
 fi
 
-# Step 4: Start with new image
+# Step 3: Recreate with the new image. Compose replaces the container when the image changed.
 print_status "Starting node with new version..."
 if docker compose up -d; then
     print_status "Node started successfully with new version"
@@ -187,7 +197,7 @@ else
     exit 1
 fi
 
-# Step 5: Verify the update
+# Step 4: Verify the update
 print_status "Waiting for node to start..."
 sleep 10
 

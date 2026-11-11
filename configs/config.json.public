@@ -1,0 +1,15 @@
+{
+  "apis": [
+    "avalanche",
+    "chain",
+    "net",
+    "price",
+    "subscription",
+    "tx",
+    "web3"
+  ],
+  "api-max-duration": "5s",
+  "batch-request-limit": 100,
+  "pruning-enabled": true,
+  "state-sync-enabled": true
+}

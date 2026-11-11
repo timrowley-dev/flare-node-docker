@@ -16,7 +16,7 @@
 
 - **Network Support**: flare, coston, costwo, songbird
 - **Node Types**: Observer and Validator nodes
-- **Archival Mode**: Configurable pruning (archival nodes supported)
+- **Config templates**: Public and private API profiles. Validators always use a web3-only template
 - **Configuration Management**: Automatic config.json selection
 - **Volume Management**: Persistent data, logs, and staking directories
 - **Health Monitoring**: Built-in health checks
@@ -50,8 +50,11 @@
 
    - Create .env file from template
    - Create `/opt/flare/` directories
-   - Let you choose configuration type (observer/validator/archival)
+   - Ask whether this node is an observer or a validator
+   - For an observer, ask which template to use (public or private). Validators always use the web3-only template
+   - Ask for an image tag when the default is `go-flare:latest`. Pass `--tag go-flare:v1.15.1` to skip the prompt
    - Copy the selected config to `/opt/flare/configs/config.json`
+   - For a validator, keep the existing staking identity or refuse to start until those files are in place
 
 4. **Edit configurations**:
 
@@ -81,11 +84,12 @@
 ├── install-docker.sh       # Docker installation script
 ├── setup.sh               # Setup script (replaces install functionality)
 ├── update.sh              # Automated update script
+├── staking-identity.sh    # Shared staking-file salvage used by setup and update
 ├── health-check.sh         # Health monitoring (replaces --status)
 ├── configs/               # Local config templates
-│   ├── config.json.observer    # Observer node config template
-│   ├── config.json.validator   # Validator node config template
-│   └── config.json.archival    # Archival node config template
+│   ├── config.json.public      # Public node config template
+│   ├── config.json.private     # Private node config template
+│   └── config.json.validator   # Validator config template (web3 only)
 └── /opt/flare/            # Production directories (created by setup.sh)
     ├── configs/
     │   └── config.json        # Active config (copied from template)
@@ -100,11 +104,15 @@
 | Variable          | Description             | Example                                 |
 | ----------------- | ----------------------- | --------------------------------------- |
 | `NETWORK`         | Network to connect to   | `flare`, `coston`, `costwo`, `songbird` |
-| `NODE_TAG`        | Docker image version    | `go-flare:v1.11.0`                      |
-| `DB_DIR`          | Database directory path | `/mnt/disks/db`                         |
-| `NODE_TYPE`       | Node type               | `observer`, `validator`                 |
-| `HTTP_HOST`       | API bind address        | `0.0.0.0`                               |
-| `EXTRA_ARGUMENTS` | Additional node args    | `--http-allowed-hosts="*"`              |
+| `NODE_TAG`              | Docker image tag. Default `go-flare:latest` does not include Helicon. Pass `--tag` at install | `go-flare:v1.15.1` |
+| `DB_DIR`                | Database directory path | `/mnt/disks/db`                         |
+| `NODE_TYPE`             | Node type               | `observer`, `validator`                 |
+| `HTTP_HOST`             | In-container RPC bind. Leave at `0.0.0.0` | `0.0.0.0`                        |
+| `HTTP_PUBLISH_HOST`     | Host address for port 9650. Falls back to `HTTP_HOST` | `127.0.0.1`            |
+| `STAKING_PUBLISH_HOST`  | Host address for port 9651. Falls back to `HTTP_HOST` | `0.0.0.0`              |
+| `HTTP_ALLOWED_HOSTS`    | RPC hostname allow list | `*`                                     |
+| `EXTRA_ARGUMENTS`       | Additional node args. Validator staking flags are added by setup | `--index-enabled=1` |
+| `BOOTSTRAP_ENDPOINT`    | Optional override of the image bootstrap URL. Leave unset to use the image default | `https://flare-bootstrap.flare.network/ext/info` |
 
 ### Common Operations
 
@@ -112,13 +120,17 @@
 # Install Docker (if needed)
 ./install-docker.sh
 
-# Interactive setup (choose config type)
+# Interactive setup (choose config type and, for a new install, the image tag)
 ./setup.sh
 
-# Non-interactive setup (specify config type)
-./setup.sh 1  # Observer
-./setup.sh 2  # Validator
-./setup.sh 3  # Archival
+# Non-interactive setup
+./setup.sh --tag go-flare:v1.15.1 observer public    # Observer with the public template
+./setup.sh --tag go-flare:v1.15.1 observer private   # Observer with the private template
+./setup.sh --tag go-flare:v1.15.1 validator          # Existing validator; staking files must already be present
+./setup.sh --new-validator --tag go-flare:v1.15.1 validator  # Create a new staking identity on first start
+
+# After pulling Compose changes, run ./setup.sh or ./update.sh before the first up
+# so validator staking flags are written before the container is recreated.
 
 # Start node
 docker compose up -d
@@ -139,30 +151,33 @@ docker compose restart
 # Upgrade node (interactive - shows latest versions)
 ./update.sh
 
-# Upgrade node (direct)
-./update.sh go-flare:v1.11.1
-
-# Upgrade node (manual)
-# Update .env variable NODE_TAG with latest tag
-docker compose pull
-docker compose down && docker compose up -d
+# Upgrade node. Use the script so staking flags are in place before recreate.
+./update.sh go-flare:v1.15.1
 ```
 
 ## Validator Setup
 
-For validator nodes:
+`staker.crt`, `staker.key`, and `signer.key` are the node identity. Setup writes `NODE_TYPE=validator` and the staking file flags only after those files are safe. The flags point the node at `/opt/flare/staking` (mounted at `/app/staking`). `staker.key` and `signer.key` are kept at mode `600`.
 
-1. Run setup and select option 2 (validator): `./setup.sh`
-2. Edit `.env` file: set `NODE_TYPE=validator` and other configuration
-3. Place your certificates in `/opt/flare/staking/` (if new validator these will be generated for you):
-   - `staker.crt` (TLS certificate)
-   - `staker.key` (TLS private key)
-   - `signer.key` (Staking signer key)
-4. Add staking arguments to `EXTRA_ARGUMENTS` in `.env`:
-   ```bash
-   EXTRA_ARGUMENTS="--staking-tls-cert-file=/app/staking/staker.crt --staking-tls-key-file=/app/staking/staker.key --staking-signer-key-file=/app/staking/signer.key"
-   ```
-5. Start: `docker compose up -d`
+### New validator
+
+```bash
+./setup.sh --new-validator --tag go-flare:v1.15.1 validator
+docker compose up -d
+```
+
+The first start creates the three files in `/opt/flare/staking`. Back them up before moving the node.
+
+### Restore an existing validator on a new machine
+
+1. On the old machine, run `./update.sh` or `./setup.sh` so the three files are copied out of the container into `/opt/flare/staking` if they are not already there.
+2. Copy `staker.crt`, `staker.key`, and `signer.key` to `/opt/flare/staking` on the new machine.
+3. Run `./setup.sh --tag go-flare:v1.15.1 validator`. Setup leaves the file contents alone.
+4. Start only after that command finishes: `docker compose up -d`.
+
+`./setup.sh validator` with an empty staking directory does not create a new identity. Pass `--new-validator` only when this node has never had one.
+
+To publish RPC only on this machine and still accept peer connections, set `HTTP_HOST=0.0.0.0`, `HTTP_PUBLISH_HOST=127.0.0.1`, and `STAKING_PUBLISH_HOST=0.0.0.0`.
 
 ## Node Updates
 
@@ -175,7 +190,7 @@ Use the `update.sh` script to automatically upgrade your node:
 ./update.sh
 
 # Direct update to specific version
-./update.sh go-flare:v1.11.1
+./update.sh go-flare:v1.15.1
 ```
 
 **Interactive Mode:**
@@ -184,11 +199,11 @@ When run without arguments, the script fetches the latest 5 version tags from [D
 ```
 Available latest version tags:
 
-  1) go-flare:v1.11.0
-  2) go-flare:v1.10.9
-  3) go-flare:v1.10.8
-  4) go-flare:v1.10.7
-  5) go-flare:v1.10.6
+  1) go-flare:v1.15.1
+  2) go-flare:v1.14.2
+  3) go-flare:v1.14.0
+  4) go-flare:v1.13.0
+  5) go-flare:v1.12.0
   6) Custom version (enter manually)
   0) Cancel
 
@@ -198,24 +213,19 @@ Select version (0-6):
 **The script will:**
 
 1. Show current vs new version and ask for confirmation
-2. Update `NODE_TAG` in `.env` file (creates `.env.backup`)
-3. Stop the current container (`docker compose down`)
-4. Pull the new image (`docker compose pull`)
-5. Start with new version (`docker compose up -d`)
+2. Keep existing staking files. A validator with those files still missing is not recreated. Missing staking path flags are added
+3. Update `NODE_TAG` in `.env` file (creates `.env.backup`)
+4. Pull the new image (`docker compose pull`) while the current container keeps running
+5. Recreate with the new image (`docker compose up -d`) only after the pull succeeds
 6. Verify the update and show node version
-7. **Auto-rollback** if anything fails
+7. Restore `.env` and leave the running container in place if the pull fails. Restore `.env` and start the previous version if the new container does not stay up
 
 ### Manual Update Process
 
-If you prefer manual control:
+Use `./update.sh` so the staking flags are written before Compose recreates the container. After pulling changes to this repository, run `./update.sh` or `./setup.sh` before the first `docker compose up -d`.
 
 ```bash
-# Edit .env file to update NODE_TAG
-nano .env
-
-# Pull new image and restart
-docker compose pull
-docker compose down && docker compose up -d
+./update.sh go-flare:v1.15.1
 ```
 
 ## Troubleshooting

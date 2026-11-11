@@ -1,14 +1,20 @@
 services:
   flare-node:
-    image: flarefoundation/${NODE_TAG} # e.g., go-flare:v1.11.0
+    image: flarefoundation/${NODE_TAG} # e.g., go-flare:latest
     container_name: ${NETWORK}-${NODE_TYPE:-observer} # e.g., flare-observer or flare-validator
     restart: always
+    # Export the bootstrap endpoint only when BOOTSTRAP_ENDPOINT is set.
+    # An empty value must not replace the image default.
+    entrypoint: ["/bin/bash", "-c"]
+    command:
+      - 'if [ -n "$${BOOTSTRAP_ENDPOINT:-}" ]; then export AUTOCONFIGURE_BOOTSTRAP_ENDPOINT="$$BOOTSTRAP_ENDPOINT"; fi; exec /app/entrypoint.sh'
     environment:
       - NETWORK_ID=${NETWORK} # e.g., flare
       - AUTOCONFIGURE_BOOTSTRAP=1
       - AUTOCONFIGURE_PUBLIC_IP=1
-      - AUTOCONFIGURE_BOOTSTRAP_ENDPOINT=${BOOTSTRAP_ENDPOINT} # Auto-configured per network
+      - BOOTSTRAP_ENDPOINT=${BOOTSTRAP_ENDPOINT:-}
       - HTTP_HOST=${HTTP_HOST:-0.0.0.0}
+      - "HTTP_ALLOWED_HOSTS=${HTTP_ALLOWED_HOSTS:-*}"
       - EXTRA_ARGUMENTS=${EXTRA_ARGUMENTS} # Additional node arguments
     volumes:
       - ${DB_DIR}:/app/db # Database directory
@@ -16,14 +22,19 @@ services:
       - /opt/flare/logs:/app/logs # Log files
       - /opt/flare/staking:/app/staking # Staking certificates (validators only)
     ports:
-      - "${HTTP_HOST:-0.0.0.0}:9650:9650"
-      - "${HTTP_HOST:-0.0.0.0}:9651:9651"
+      - "${HTTP_PUBLISH_HOST:-${HTTP_HOST:-0.0.0.0}}:9650:9650"
+      - "${STAKING_PUBLISH_HOST:-${HTTP_HOST:-0.0.0.0}}:9651:9651"
     healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:9650/ext/health"]
+      test: ["CMD", "curl", "-f", "http://localhost:9650/ext/health/liveness"]
       interval: 30s
       timeout: 10s
       retries: 3
       start_period: 40s
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
 
 # External volume for DB
 volumes:

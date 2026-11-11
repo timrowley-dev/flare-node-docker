@@ -118,7 +118,7 @@ print_status "Updating package lists with Docker repository..."
 sudo apt-get update
 
 print_status "Installing Docker CE..."
-sudo apt-get install -y docker-ce docker-ce-cli containerd.io docker-buildx-plugin docker compose-plugin
+sudo apt-get install -y docker-ce docker-ce-cli containerd.io docker-buildx-plugin docker-compose-plugin
 
 # Step 6: Start and enable Docker
 print_status "Starting and enabling Docker service..."
